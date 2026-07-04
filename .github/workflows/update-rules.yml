@@ -1,0 +1,43 @@
+name: Update Rules and Compile SRS
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install sing-box
+        run: |
+          bash <(curl -fsSL https://sing-box.app/install.sh)
+
+      - name: Run script
+        run: python merge_and_compile.py
+
+      # -----------------------------
+      # Commit ALL outputs (JSON + SRS)
+      # -----------------------------
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add \
+            direct_rules.json direct_rules.srs \
+            proxy_rules.json proxy_rules.srs \
+            reject_rules.json reject_rules.srs \
+            ip_rules.json ip_rules.srs
+
+          git commit -m "Auto-update: merged JSON + compiled SRS rules" || echo "No changes to commit"
+          git push
