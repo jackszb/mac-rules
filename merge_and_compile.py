@@ -10,6 +10,7 @@ import ipaddress
 
 DIRECT_URLS = [
     "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/direct.json",
+    "https://raw.githubusercontent.com/jackszb/mac-rules/main/direct_custom_rules.json",
 ]
 
 PROXY_URLS = [
