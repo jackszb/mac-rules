@@ -15,6 +15,7 @@ DIRECT_URLS = [
 
 PROXY_URLS = [
     "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/proxy.json",
+    "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/foreign.json",
 ]
 
 REJECT_URLS = [
