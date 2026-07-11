@@ -29,7 +29,7 @@ REJECT_URLS = [
 
 IP_URLS = [
     "https://raw.githubusercontent.com/jackszb/cn-ip/main/rules/geoip-cn.json",
-    "https://raw.githubusercontent.com/jackszb/iphone-rules/main/ip_custom_rules.json",
+    "https://raw.githubusercontent.com/jackszb/mac-rules/main/ip_custom_rules.json",
 ]
 
 # 允许输出的字段(源数据里只会出现 ip_cidr,不存在单独的 ip 字段)
