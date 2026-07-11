@@ -11,7 +11,7 @@ import ipaddress
 
 DIRECT_URLS = [
     "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/direct.json",
-    "https://raw.githubusercontent.com/jackszb/iphone-rules/main/direct_custom_rules.json",
+    "https://raw.githubusercontent.com/jackszb/mac-rules/main/direct_custom_rules.json",
 ]
 
 PROXY_URLS = [
@@ -20,7 +20,7 @@ PROXY_URLS = [
 ]
 
 REJECT_URLS = [
-    "https://raw.githubusercontent.com/jackszb/iphone-rules/main/reject_custom_rules.json",
+    "https://raw.githubusercontent.com/jackszb/mac-rules/main/reject_custom_rules.json",
     "https://raw.githubusercontent.com/jackszb/sukka-clean/main/reject-I.json",
     "https://raw.githubusercontent.com/jackszb/sukka-clean/main/reject-II.json",
     "https://raw.githubusercontent.com/jackszb/clean/main/adblocksingbox.json",
