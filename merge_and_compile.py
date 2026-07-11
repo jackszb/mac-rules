@@ -2,6 +2,7 @@ import json
 import ssl
 import subprocess
 import urllib.request
+import urllib.error
 import ipaddress
 
 # -----------------------------
@@ -10,7 +11,7 @@ import ipaddress
 
 DIRECT_URLS = [
     "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/direct.json",
-    "https://raw.githubusercontent.com/jackszb/mac-rules/main/direct_custom_rules.json",
+    "https://raw.githubusercontent.com/jackszb/iphone-rules/main/direct_custom_rules.json",
 ]
 
 PROXY_URLS = [
@@ -27,11 +28,24 @@ REJECT_URLS = [
 ]
 
 IP_URLS = [
-    "https://raw.githubusercontent.com/jackszb/sukka-json/main/ip/china_ip.json",
-    "https://raw.githubusercontent.com/jackszb/sukka-json/main/ip/domestic.json",
-    "https://raw.githubusercontent.com/jackszb/sukka-json/main/ip/china_ip_ipv6.json",
-    "https://raw.githubusercontent.com/jackszb/mac-rules/main/ip_custom_rules.json",
+    "https://raw.githubusercontent.com/jackszb/cn-ip/main/rules/geoip-cn.json",
+    "https://raw.githubusercontent.com/jackszb/iphone-rules/main/ip_custom_rules.json",
 ]
+
+# 允许输出的字段(源数据里只会出现 ip_cidr,不存在单独的 ip 字段)
+ALLOWED_KEYS = {
+    "domain",
+    "domain_suffix",
+    "domain_keyword",
+    "domain_regex",
+    "ip_cidr",
+}
+
+# 网络请求超时时间(秒)
+FETCH_TIMEOUT = 15
+# sing-box 编译超时时间(秒)
+COMPILE_TIMEOUT = 60
+
 
 # -----------------------------
 # Fetch & merge
@@ -39,6 +53,7 @@ IP_URLS = [
 
 def process_urls(urls, ssl_context):
     master_rules = {}
+    dropped_keys = set()
 
     for url in urls:
         url = url.strip()
@@ -48,21 +63,41 @@ def process_urls(urls, ssl_context):
         try:
             print(f"  Fetching: {url}")
 
-            with urllib.request.urlopen(url, context=ssl_context) as response:
-                data = json.loads(response.read().decode("utf-8"))
+            with urllib.request.urlopen(url, context=ssl_context, timeout=FETCH_TIMEOUT) as response:
+                raw = response.read().decode("utf-8")
 
-            if "rules" in data and isinstance(data["rules"], list):
-                for rule in data["rules"]:
-                    for key, value in rule.items():
-                        master_rules.setdefault(key, [])
+            data = json.loads(raw)
 
-                        if isinstance(value, list):
-                            master_rules[key].extend(value)
-                        else:
-                            master_rules[key].append(value)
+            if not (isinstance(data, dict) and isinstance(data.get("rules"), list)):
+                print(f"  [WARN] {url}: unexpected structure, no 'rules' list found, skipped")
+                continue
 
+            for rule in data["rules"]:
+                if not isinstance(rule, dict):
+                    print(f"  [WARN] {url}: rule entry is not an object, skipped ({rule!r})")
+                    continue
+
+                for key, value in rule.items():
+                    if key not in ALLOWED_KEYS:
+                        dropped_keys.add(key)
+                        continue
+
+                    master_rules.setdefault(key, [])
+
+                    if isinstance(value, list):
+                        master_rules[key].extend(value)
+                    else:
+                        master_rules[key].append(value)
+
+        except urllib.error.URLError as e:
+            print(f"  [NETWORK ERROR] {url}: {e}")
+        except json.JSONDecodeError as e:
+            print(f"  [JSON ERROR] {url}: invalid JSON ({e})")
         except Exception as e:
             print(f"  [ERROR] {url}: {e}")
+
+    if dropped_keys:
+        print(f"  [INFO] Ignored unknown/unsupported keys from this batch: {sorted(dropped_keys)}")
 
     return master_rules
 
@@ -78,6 +113,9 @@ def sort_ip_list(values):
     seen = set()
 
     for v in values:
+        if not isinstance(v, str):
+            continue
+
         if v in seen:
             continue
         seen.add(v)
@@ -100,6 +138,23 @@ def sort_ip_list(values):
     return [str(x) for x in ipv4_sorted + ipv6_sorted]
 
 
+def safe_sorted_unique(values, field_name):
+    """对普通字符串字段做去重排序,过滤掉非字符串类型并给出警告,避免 sorted() 因类型混杂而抛错。"""
+    str_values = []
+    non_str_count = 0
+
+    for v in values:
+        if isinstance(v, str):
+            str_values.append(v)
+        else:
+            non_str_count += 1
+
+    if non_str_count:
+        print(f"  [WARN] field '{field_name}': dropped {non_str_count} non-string value(s)")
+
+    return sorted(set(str_values))
+
+
 # -----------------------------
 # Save JSON + compile SRS
 # -----------------------------
@@ -107,26 +162,18 @@ def sort_ip_list(values):
 def save_json_and_compile(master_rules, json_file, srs_file):
     final_rule = {}
 
-    allowed_keys = {
-        "domain",
-        "domain_suffix",
-        "domain_keyword",
-        "domain_regex",
-        "ip_cidr",
-        "ip"
-    }
-
-    for key, values in master_rules.items():
+    # 先处理普通 domain 类字段
+    domain_like_keys = ALLOWED_KEYS - {"ip_cidr"}
+    for key in domain_like_keys:
+        values = master_rules.get(key)
         if not values:
             continue
+        final_rule[key] = safe_sorted_unique(values, key)
 
-        if key in allowed_keys:
-
-            # ✅ IP 特殊处理：IPv4 → IPv6
-            if key in ("ip", "ip_cidr"):
-                final_rule[key] = sort_ip_list(values)
-            else:
-                final_rule[key] = sorted(set(values))
+    # ip_cidr 走专门的 IPv4/IPv6 排序去重逻辑
+    ip_values = master_rules.get("ip_cidr")
+    if ip_values:
+        final_rule["ip_cidr"] = sort_ip_list(ip_values)
 
     data = {
         "version": 4,
@@ -148,7 +195,8 @@ def save_json_and_compile(master_rules, json_file, srs_file):
         result = subprocess.run(
             ["sing-box", "rule-set", "compile", "--output", srs_file, json_file],
             capture_output=True,
-            text=True
+            text=True,
+            timeout=COMPILE_TIMEOUT,
         )
 
         if result.returncode == 0:
@@ -158,6 +206,8 @@ def save_json_and_compile(master_rules, json_file, srs_file):
 
     except FileNotFoundError:
         print("  [WARNING] sing-box not found, only JSON generated")
+    except subprocess.TimeoutExpired:
+        print(f"  [SRS ERROR]: compile timed out after {COMPILE_TIMEOUT}s")
 
 
 # -----------------------------
@@ -165,7 +215,8 @@ def save_json_and_compile(master_rules, json_file, srs_file):
 # -----------------------------
 
 def main():
-    ssl_context = ssl._create_unverified_context()
+    # 使用默认的证书校验上下文(raw.githubusercontent.com 证书有效,无需关闭校验)
+    ssl_context = ssl.create_default_context()
 
     print("\n=== DIRECT ===")
     direct = process_urls(DIRECT_URLS, ssl_context)
