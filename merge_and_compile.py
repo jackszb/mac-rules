@@ -20,10 +20,9 @@ PROXY_URLS = [
 ]
 
 REJECT_URLS = [
-    "https://raw.githubusercontent.com/jackszb/mac-rules/main/reject_custom_rules.json",
     "https://raw.githubusercontent.com/jackszb/sukka-clean/main/reject-I.json",
     "https://raw.githubusercontent.com/jackszb/sukka-clean/main/reject-II.json",
-    "https://raw.githubusercontent.com/jackszb/clean/main/adblocksingbox.json",
+    "https://raw.githubusercontent.com/217heidai/adblockfilters/main/rules/adblocksingbox.json",
     "https://raw.githubusercontent.com/TG-Twilight/AWAvenue-Ads-Rule/main/Filters/AWAvenue-Ads-Rule-Singbox.json",
 ]
 
