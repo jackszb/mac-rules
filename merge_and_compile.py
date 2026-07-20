@@ -10,13 +10,11 @@ import ipaddress
 # -----------------------------
 
 DIRECT_URLS = [
-    "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/direct.json",
-    "https://raw.githubusercontent.com/jackszb/mac-rules/main/direct_custom_rules.json",
+    "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/my-direct.json",
 ]
 
 PROXY_URLS = [
-    "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/proxy.json",
-    "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/foreign.json",
+    "https://raw.githubusercontent.com/jackszb/rules-build/main/rules-src/my-proxy.json",
 ]
 
 REJECT_URLS = [
